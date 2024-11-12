@@ -3,10 +3,10 @@
 import qrcode
 
 # Base URL for the pages
-base_url = "https://vdg.phys.sci.osaka-u.ac.jp/BUPPIN/VME/"
+base_url = "https://vdg.phys.sci.osaka-u.ac.jp/BUPPIN/TARGET/"
 
 # Loop to generate QR codes for 019 to 029
-for i in range(27,28):
+for i in range(25,28):
     # Construct the full URL
     url = f"{base_url}{i:03}.html"
     
