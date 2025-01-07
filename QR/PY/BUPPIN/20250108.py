@@ -23,10 +23,7 @@ def generate_html(input_url):
 
 def get_user_input():
     """Get user input for category and number range."""
-    # Available categories
     categories = ['VME', 'NIM-CAMAC', 'DET', 'PC', 'TARGET']
-    
-    # Get category
     while True:
         print("\nAvailable categories:")
         for i, cat in enumerate(categories, 1):
@@ -40,8 +37,7 @@ def get_user_input():
                 print("Invalid choice. Please select a number between 1 and 5.")
         except ValueError:
             print("Please enter a valid number.")
-    
-    # Get start number
+
     while True:
         try:
             start = int(input("\nEnter start number (default: 1): ") or "1")
@@ -51,8 +47,7 @@ def get_user_input():
                 print("Please enter a positive number.")
         except ValueError:
             print("Please enter a valid number.")
-    
-    # Get end number
+
     while True:
         try:
             end = int(input(f"Enter end number (default: {start}): ") or str(start))
@@ -66,13 +61,21 @@ def get_user_input():
     return category, start, end
 
 def get_form_urls(start, end):
-    """Get Google Form URLs for each number."""
-    form_urls = {}
-    print("\nEnter Google Form URLs for each number (press Enter to skip):")
-    for i in range(start, end + 1):
-        url = input(f"Form URL for {i:03d}: ").strip()
-        if url:  # Only store non-empty URLs
-            form_urls[i] = url
+    """Get Google Form URLs in bulk input."""
+    print("\nEnter Google Form URLs in bulk (one per line, matching the numbers in order). Finish input with an empty line:")
+    urls = []
+    while True:
+        url = input().strip()
+        if url == "":
+            break  # 空行が入力されるまで待機
+        urls.append(url)
+        
+    # URLの数が足りない場合の補完処理
+    if len(urls) < (end - start + 1):
+        print(f"\nWarning: Only {len(urls)} URLs provided for range {start}-{end}. Missing URLs will be skipped.")
+
+    # 開始番号から順番に辞書を作成
+    form_urls = {start + i: url for i, url in enumerate(urls) if url}
     return form_urls
 
 def sync_to_server():
@@ -81,10 +84,7 @@ def sync_to_server():
     try:
         cmd = ['rsync', '-arve', 'ssh', '--progress', './HTML/', 
                'IV_web:/System/Volumes/Data/Sites/Default/BUPPIN/']
-        process = subprocess.run(cmd, 
-                               text=True,
-                               check=True,
-                               capture_output=True)
+        process = subprocess.run(cmd, text=True, check=True, capture_output=True)
         print("Sync completed successfully!")
         return True
     except subprocess.CalledProcessError as e:
@@ -98,32 +98,17 @@ def sync_to_server():
 def main():
     print("QR Code and Redirect Page Generator for BUPPIN System")
     print("==================================================")
-    
-    # Get parameters from user
     category, start, end = get_user_input()
-    
-    # Get Google Form URLs
-    print("\nGoogle Form's URL?")
     form_urls = get_form_urls(start, end)
-    
-    # Create base directories
     qr_dir = Path(f"./IMG/{category}")
     html_dir = Path(f"./HTML/{category}")
-    
-    # Create directories if they don't exist
     qr_dir.mkdir(parents=True, exist_ok=True)
     html_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Base URL for the QR codes
     base_url = f"https://vdg.phys.sci.osaka-u.ac.jp/BUPPIN/{category}/"
     
     print(f"\nGenerating files for {category} ({start:03d}-{end:03d})...")
-    
-    # Loop to generate QR codes and HTML files
     for i in range(start, end + 1):
-        # Generate QR code
         url = f"{base_url}{i:03}.html"
-        
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -132,14 +117,11 @@ def main():
         )
         qr.add_data(url)
         qr.make(fit=True)
-        
-        # Save QR code image
         img = qr.make_image(fill_color="black", back_color="white")
         qr_filename = qr_dir / f"qrcode_{i:03}.png"
         img.save(qr_filename)
         print(f"Created QR code: {qr_filename}")
-        
-        # Generate and save HTML redirect file if form URL exists
+
         if i in form_urls:
             html_code = generate_html(form_urls[i])
             html_filename = html_dir / f"{i:03}.html"
@@ -148,19 +130,11 @@ def main():
             print(f"Created redirect page: {html_filename}")
 
     print(f"\nFile generation complete!")
-    print(f"QR codes have been saved in {qr_dir}")
-    print(f"HTML redirect pages have been saved in {html_dir}")
-    
-    # Sync files to server
     sync_success = sync_to_server()
-    
     if sync_success:
         print("\nAll operations completed successfully!")
     else:
         print("\nFile generation completed, but sync to server failed.")
-        retry = input("Would you like to retry the sync? (y/n): ").lower().strip()
-        if retry == 'y':
-            sync_success = sync_to_server()
 
 if __name__ == "__main__":
     main()
